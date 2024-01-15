@@ -1,0 +1,12 @@
+values:
+  image:
+    tag: "1.4.108"
+  ingress:
+    className: traefik
+    host: timo.127.0.0.1.nip.io
+  # autoscaling:
+  #   enabled: true
+  #   minReplicas: 3
+  # db:
+  #   enabled: true
+  #   provider: "google-official"

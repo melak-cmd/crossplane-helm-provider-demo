@@ -74,6 +74,11 @@ import (
 		port: *80 | int & >0 & <=65535
 	}
 
+	ingress: {
+		host:    *"timo.sh" | string
+		className?: string
+	}
+
 	// Pod optional settings.
 	podAnnotations?: {[string]: string}
 	podSecurityContext?: corev1.#PodSecurityContext
@@ -100,7 +105,7 @@ import (
 		sa: #ServiceAccount & {#config: config}
 		svc: #Service & {#config: config}
 		cm: #ConfigMap & {#config: config}
-
+		ingress: #Ingress & {_config: config}
 		deploy: #Deployment & {
 			#config: config
 			_cmName: objects.cm.metadata.name
