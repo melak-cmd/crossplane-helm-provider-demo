@@ -1,7 +1,7 @@
 apiVersion: nuagik.cloud/v1alpha1
 kind: AppClaim
 metadata:
-  name: cnpg-demo-$(VERSION)
+  name: cnpg-demo
   labels:
     app-owner: nuagik
 spec:
