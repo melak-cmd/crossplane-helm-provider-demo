@@ -1,11 +1,11 @@
 apiVersion: nuagik.cloud/v1alpha1
 kind: AppClaim
 metadata:
-  name: cnpg-demo
+  name: demo
   labels:
     app-owner: nuagik
 spec:
-  id: cnpg-demo
+  id: demo
   compositionSelector:
     matchLabels:
       type: frontend
