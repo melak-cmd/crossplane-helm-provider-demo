@@ -1,4 +1,4 @@
-apiVersion: nuagik.cloud/v1alpha1
+apiVersion: crossplane.io/v1alpha1
 kind: AppClaim
 metadata:
   name: demo
