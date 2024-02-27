@@ -6,7 +6,7 @@ spec:
   id: demo
   compositionSelector:
     matchLabels:
-      type: frontend
+      type: database
   parameters:
     namespace: demo
     image: dbgate/dbgate:latest
