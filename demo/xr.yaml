@@ -2,8 +2,6 @@ apiVersion: crossplane.io/v1alpha1
 kind: AppClaim
 metadata:
   name: demo
-  labels:
-    app-owner: nuagik
 spec:
   id: demo
   compositionSelector:
