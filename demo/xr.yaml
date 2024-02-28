@@ -12,5 +12,5 @@ spec:
     image: dbgate/dbgate:latest
     host: dbgate.127.0.0.1.nip.io
   writeConnectionSecretToRef:
-    name: dbgate-creads
+    name: dbgate-creeds
     namespace: crossplane-system
