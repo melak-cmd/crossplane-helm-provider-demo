@@ -1,0 +1,374 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  labels:
+    type: database
+  name: cngp-service
+spec:
+  compositeTypeRef:
+    apiVersion: crossplane.io/v1alpha1
+    kind: App
+  mode: Pipeline
+  pipeline:
+  - functionRef:
+      name: function-patch-and-transform
+    input:
+      apiVersion: pt.fn.crossplane.io/v1beta1
+      environment: null
+      kind: Resources
+      patchSets:
+      - name: metadata
+        patches:
+        - fromFieldPath: metadata.labels
+          type: FromCompositeFieldPath
+      resources:
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: ProviderConfig
+          spec:
+            credentials:
+              source: InjectedIdentity
+        name: kubernetes
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: metadata.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - type: None
+      - base:
+          apiVersion: helm.crossplane.io/v1beta1
+          kind: ProviderConfig
+          spec:
+            credentials:
+              source: InjectedIdentity
+        name: helm
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: metadata.name
+          transforms:
+          - string:
+              fmt: '%s-helm'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - type: None
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: v1
+                kind: Namespace
+        name: namespace
+        patches:
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          type: FromCompositeFieldPath
+        - fromFieldPath: metadata.annotations
+          toFieldPath: spec.forProvider.manifest.metadata.annotations
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.labels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - fieldPath: status.atProvider.manifest.status.phase
+          matchString: Active
+          type: MatchString
+      - base:
+          apiVersion: helm.crossplane.io/v1beta1
+          kind: Release
+          metadata:
+            annotations:
+              crossplane.io/external-name: cloudnative-pg
+          spec:
+            forProvider:
+              chart:
+                name: cloudnative-pg
+                repository: https://cloudnative-pg.github.io/charts
+                version: 0.20.1
+              namespace: cnpg-system
+        name: cnpg
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-helm'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: postgresql.cnpg.io/v1
+                kind: Cluster
+                metadata:
+                  annotations: {}
+                spec:
+                  instances: 1
+                  storage:
+                    size: 1Gi
+            writeConnectionSecretToRef:
+              name: cnpg-demo-secret
+              namespace: demo
+        name: instance
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+          - string:
+              fmt: '%s-cluster'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: metadata.annotations
+          toFieldPath: spec.forProvider.manifest.metadata.annotations
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - matchCondition:
+            status: "True"
+            type: Ready
+          type: MatchCondition
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  annotations: {}
+                spec:
+                  template:
+                    spec:
+                      containers:
+                      - env:
+                        - name: CONNECTIONS
+                          value: db
+                        - name: LABEL_db
+                          value: ""
+                        - name: SERVER_db
+                          value: postgres
+                        - name: URL_db
+                          valueFrom:
+                            secretKeyRef:
+                              key: uri
+                              name: secret-db
+                        - name: ENGINE_db
+                          value: postgres@dbgate-plugin-postgres
+                        image: dbgate/dbgate:latest
+                        livenessProbe:
+                          httpGet:
+                            path: /
+                            port: 3000
+                        name: dbgate
+                        ports:
+                        - containerPort: 3000
+                        readinessProbe:
+                          httpGet:
+                            path: /
+                            port: 3000
+                        resources:
+                          limits:
+                            cpu: 250m
+                            memory: 256Mi
+                          requests:
+                            cpu: 125m
+                            memory: 128Mi
+        name: deployment
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+          - string:
+              fmt: '%s-dbgate'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].env[1].value
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].env[3].valueFrom.secretKeyRef.name
+          transforms:
+          - string:
+              fmt: '%s-cluster-app'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: metadata.annotations
+          toFieldPath: spec.forProvider.manifest.metadata.annotations
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.labels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.selector.matchLabels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.template.metadata.labels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - type: None
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  annotations: {}
+                spec:
+                  ports:
+                  - port: 3000
+                    protocol: TCP
+                    targetPort: 3000
+                  type: ClusterIP
+        name: service
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+          - string:
+              fmt: '%s-dbgate-service'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: metadata.annotations
+          toFieldPath: spec.forProvider.manifest.metadata.annotations
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.labels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.selector.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        readinessChecks:
+        - type: None
+      - base:
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: networking.k8s.io/v1
+                kind: Ingress
+                metadata:
+                  annotations: {}
+                spec:
+                  ingressClassName: nginx
+                  rules:
+                  - host: change_me
+                    http:
+                      paths:
+                      - backend:
+                          service:
+                            name: change_me
+                            port:
+                              number: 3000
+                        path: /
+                        pathType: Prefix
+            template:
+              metadata: null
+        name: ingress
+        patches:
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+          - string:
+              fmt: '%s-ingress'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: metadata.annotations
+          toFieldPath: spec.forProvider.manifest.metadata.annotations
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.parameters.host
+          toFieldPath: spec.forProvider.manifest.spec.rules[0].host
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.rules[0].http.paths[0].backend.service.name
+          transforms:
+          - string:
+              fmt: '%s-dbgate-service'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.metadata.labels.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.forProvider.manifest.spec.selector.app
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.id
+          toFieldPath: spec.providerConfigRef.name
+          transforms:
+          - string:
+              fmt: '%s-kubernetes'
+              type: Format
+            type: string
+          type: FromCompositeFieldPath
+        - fromFieldPath: spec.forProvider.manifest.spec.rules[0].host
+          toFieldPath: status.host
+          type: ToCompositeFieldPath
+        readinessChecks:
+        - type: None
+    step: patch-and-transform
+  writeConnectionSecretsToNamespace: default
