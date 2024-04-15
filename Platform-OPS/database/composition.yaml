@@ -3,6 +3,9 @@ kind: Composition
 metadata:
   labels:
     type: database
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "1"    
   name: cngp-service
 spec:
   compositeTypeRef:
