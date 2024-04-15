@@ -1,6 +1,8 @@
 apiVersion: crossplane.io/v1alpha1
 kind: AppClaim
 metadata:
+  annotations:
+    argocd.argoproj.io/hook: PostSync 
   name: demo
 spec:
   id: demo
