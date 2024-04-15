@@ -13,6 +13,7 @@ spec:
     - name: metadata
       patches:
         - fromFieldPath: metadata.labels
+          type: FromCompositeFieldPath
   resources:
     - name: kubernetes
       base:
@@ -28,6 +29,8 @@ spec:
             - type: string
               string:
                 fmt: "%s-kubernetes"
+                type: Format
+          type: FromCompositeFieldPath
       readinessChecks:
         - type: None
     - name: helm
