@@ -47,6 +47,8 @@ spec:
             - type: string
               string:
                 fmt: "%s-helm"
+                type: Format
+          type: FromCompositeFieldPath
       readinessChecks:
         - type: None
     - name: namespace
